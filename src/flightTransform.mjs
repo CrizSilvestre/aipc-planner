@@ -68,6 +68,14 @@ export function toApcRows(flights, { reportDay }) {
     else if (overOut) { vueloNo = (f.arrFlight || '').trim(); rutaVal = `${from}-PUJ`; }
     else { vueloNo = flightNo(f.arrFlight, f.depFlight); rutaVal = `${from}-PUJ-${to}`; }
 
+    const correa = overIn ? NA : naIf(f.correa);   // OVER en STA → correa N/A (aduanas no la requiere)
+    const gate = overOut ? NA : naIf(f.gate);      // OVER en STD → gate N/A (no lleva puerta)
+    // Posible ferry (SOLO aviso/preview, NO toca el Excel): vuelo no-OVER que va vacío
+    // sin la facilidad que le tocaría. Ferry-in (llega vacío) no usa correa; ferry-out
+    // (sale vacío) no usa gate. Un comercial al que se le olvidó la data tendría gate/correa.
+    const ferry = !overIn && !overOut
+      && ((paxIn === NA && correa === NA) || (paxOut === NA && gate === NA));
+
     return {
       aerolinea: (f.airline || '').trim(),
       vueloNo,
@@ -77,11 +85,12 @@ export function toApcRows(flights, { reportDay }) {
       acType: (f.acType || '').trim(),
       handler: (f.handler || '').trim(),
       paxIn, paxTransito, paxOut,
-      correa: overIn ? NA : naIf(f.correa),   // OVER en STA → correa N/A (aduanas no la requiere)
+      correa,
       stand: (f.stand || '').trim(),          // obligatorio (la validación marca si falta)
-      gate: overOut ? NA : naIf(f.gate),      // OVER en STD → gate N/A (no lleva puerta)
+      gate,
       ckin: (f.ckin || '').trim(),
       over: overIn && overOut ? 'BOTH' : overIn ? 'IN' : overOut ? 'OUT' : null,
+      ferry,
       _staKey: dtNum(f.staDT),
       _stdKey: dtNum(f.stdDT),
     };

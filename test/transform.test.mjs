@@ -51,5 +51,30 @@ ok('orden · el resto por STA ascendente', (() => {
   return true;
 })());
 
+// ── Fix corporativo: una PC de trabajo en locale US exporta las fechas como M/D
+//    ("6/20/26") en vez de D/M ("20/6/26"). El MISMO vuelo, en los dos formatos,
+//    debe dar EXACTAMENTE el mismo OVER (antes: todo salía OVER en la corporativa).
+const COLS_OUT = 'MIA\tMIA\t320\tH\t150\t\t40\tC1\tA1\tG1\tT1'; // from..ck-in (sale al día siguiente 14:00 → OVER_OUT)
+const dm = toApcRows(parseAmsClipboard(`X\tX 1\tX 1\t20/6/26 13:00\t21/6/26 14:00\t${COLS_OUT}`), { reportDay: '2026-06-20' })[0];
+const md = toApcRows(parseAmsClipboard(`X\tX 1\tX 1\t6/20/26 13:00\t6/21/26 14:00\t${COLS_OUT}`), { reportDay: '2026-06-20' })[0];
+ok('formato fecha · D/M detecta OVER_OUT (STD=OVER)', dm.std === 'OVER');
+ok('formato fecha · M/D (locale US corporativo) da el MISMO resultado', md.std === 'OVER' && md.sta === dm.sta && md.std === dm.std);
+
+// ── Posible ferry (SOLO aviso/preview, no toca el Excel): ferry-out (sale vacío sin
+//    gate) y ferry-in (llega vacío sin correa) se marcan; un comercial completo NO.
+const ferryTsv = [
+  'FRY\tFRY 900\tFRY 900\t20/6/26 10:00\t20/6/26 12:00\tMIA\tMIA\t320\tABC\t150\t\t0\tC1\tA1\t\tT1',   // ferry-out: PAX OUT 0 + sin gate
+  'FIN\tFIN 300\tFIN 300\t20/6/26 08:00\t20/6/26 22:00\tBOG\tBOG\t320\tABC\t\t\t90\t\tA3\tG3\tT3',      // ferry-in: PAX IN vacío + sin correa
+  'NRM\tNRM 200\tNRM 200\t20/6/26 09:00\t20/6/26 11:00\tJFK\tJFK\t738\tXYZ\t180\t\t175\tC2\tA2\tG2\tT2', // comercial completo: NO ferry
+].join('\n');
+const fr = toApcRows(parseAmsClipboard(ferryTsv), { reportDay: '2026-06-20' });
+const fOut = fr.find((r) => r.vueloNo.startsWith('FRY'));
+const fIn = fr.find((r) => r.vueloNo.startsWith('FIN'));
+const fNrm = fr.find((r) => r.vueloNo.startsWith('NRM'));
+ok('ferry-out · sale vacío sin gate → ferry=true', fOut?.ferry === true);
+ok('ferry-in · llega vacío sin correa → ferry=true', fIn?.ferry === true);
+ok('comercial completo (con PAX+gate+correa) → NO ferry', fNrm?.ferry === false);
+ok('ferry · es SOLO aviso: no marca OVER ni cambia STA/STD', fOut?.sta !== 'OVER' && fOut?.std !== 'OVER');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

@@ -26,11 +26,15 @@ export function renderApcTable(apcRows, { reportDay }) {
   const totTd = 'border:1px solid #000;padding:3px 6px;text-align:center;font-weight:bold;color:#c00000';
 
   const head = COLS.map(([, label]) => `<th style="${th}">${label}</th>`).join('');
-  const body = apcRows.map((r) => `<tr>${COLS.map(([k]) => {
-    const v = esc(r[k]);
-    const extra = v === 'OVER' ? ';font-weight:bold;color:#c00000' : (v === 'N/A' ? ';color:#888' : '');
-    return `<td style="${td}${extra}">${v}</td>`;
-  }).join('')}</tr>`).join('');
+  const body = apcRows.map((r) => {
+    // Posible ferry → fila resaltada en amarillo (solo aviso para revisar; NO afecta el .xlsx).
+    const rowBg = r.ferry ? ' style="background:#FFF2CC"' : '';
+    return `<tr${rowBg}>${COLS.map(([k]) => {
+      const v = esc(r[k]);
+      const extra = v === 'OVER' ? ';font-weight:bold;color:#c00000' : (v === 'N/A' ? ';color:#888' : '');
+      return `<td style="${td}${extra}">${v}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
 
   const totalsRow = '<tr>'
     + '<td colspan="8" style="border:1px solid #000"></td>'
@@ -39,8 +43,21 @@ export function renderApcTable(apcRows, { reportDay }) {
     + `<td style="${totTd}">${sumPax(apcRows, 'paxOut')}</td>`
     + '<td colspan="4" style="border:1px solid #000"></td></tr>';
 
+  // Leyenda: cuenta OVER y posibles ferry del lote (ambos son SOLO avisos visuales).
+  const overCount = apcRows.filter((r) => r.over).length;
+  const ferryCount = apcRows.filter((r) => r.ferry).length;
+  const chip = (bg, bd, txt, label, n, note) =>
+    '<span style="display:inline-flex;align-items:center;gap:6px">'
+    + `<span style="width:12px;height:12px;border-radius:2px;background:${bg};border:1px solid ${bd};display:inline-block"></span>`
+    + `<b style="color:${txt}">${label}:</b> ${n}${note ? ` <span style="color:#888">${note}</span>` : ''}</span>`;
+  const legend = '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:11px">'
+    + chip('#c00000', '#c00000', '#c00000', 'OVER', overCount, '')
+    + chip('#FFF2CC', '#d9b300', '#9a7d00', 'Posible ferry', ferryCount, '(solo aviso, revisar — no va en el Excel)')
+    + '</div>';
+
   return '<div style="font-size:11px;color:#000">'
     + `<div style="font-weight:bold;font-size:13px;margin:0 0 8px">FECHA: ${esc(fechaLarga(reportDay))}</div>`
+    + legend
     + '<table style="border-collapse:collapse;font-family:Arial,sans-serif">'
     + `<thead><tr>${head}</tr></thead><tbody>${body}${totalsRow}</tbody></table>`
     + `<div style="margin-top:8px;color:#888;font-size:11px">${apcRows.length} vuelos · réplica de lo que va en el adjunto .xlsx</div></div>`;
