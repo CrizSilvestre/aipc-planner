@@ -7,6 +7,7 @@ import { itemsFromTextContent, parseSchedule } from './src/pdfSchedule.mjs';
 import { buildSupervisorAssignment } from './src/supervisorEngine.mjs';
 import { buildEmailHtml } from './src/emailTemplate.mjs';
 import { renderApcTable } from './src/apcPreview.mjs';
+import { applyEdits, isFerryMarked } from './src/cellEdits.mjs';
 import { buildEml, downloadEml } from './src/eml.mjs';
 import { copyRichHtml, gmailComposeUrl, outlookWebComposeUrl } from './src/share.mjs';
 import { CONFIG } from './src/config.mjs';
@@ -35,6 +36,7 @@ const state = {
   bcc: load(CONFIG.storageKeys.recipients, CONFIG.defaultRecipients.slice()),
   signature: load(CONFIG.storageKeys.signature, ''),
   options: load(CONFIG.storageKeys.options, { dest: 'outlook' }),
+  cellEdits: {},   // ediciones manuales del preview (edición libre + ferry); por sesión, NO se guardan
 };
 state.options.dest = state.options.dest || 'outlook';
 
@@ -45,12 +47,16 @@ function toast(msg) {
 
 const dayNum = () => parseInt(state.day.split('-')[2], 10);
 const apcRows = () => (state.flights.length ? toApcRows(state.flights, { reportDay: state.day }) : []);
+// Filas con las ediciones manuales aplicadas (lo que se ve en el preview y va al Excel).
+let lastRows = [];
+const editedRows = () => { lastRows = applyEdits(apcRows(), state.cellEdits); return lastRows; };
 const groups = () => (state.schedule ? buildSupervisorAssignment(state.schedule, { day: dayNum() }) : []);
 const sigHtml = () => state.signature;
 
 // ---- AMS ----------------------------------------------------------------
 function onAms(text) {
   state.flights = parseAmsClipboard(text || '');
+  state.cellEdits = {};   // datos nuevos → se reinician las ediciones manuales
   $('ams-status').textContent = `${state.flights.length} vuelos`;
   if (state.flights.length) toast(`${state.flights.length} vuelos leídos de AMS`);
   render();
@@ -172,7 +178,7 @@ function overBanner(diag) {
 }
 
 function render() {
-  const rows = apcRows();
+  const rows = editedRows();
   $('preview').innerHTML = buildEmailHtml(groups(), { reportDay: state.day, signatureHtml: sigHtml() });
   $('xlsx-preview').innerHTML = renderApcTable(rows, { reportDay: state.day });
   $('mailmeta').innerHTML = `${rows.length} vuelos · ${state.day}`;
@@ -196,7 +202,7 @@ async function generate() {
   try {
     toast('Generando Excel y correo…');
     const tplBuf = await (await fetch('./assets/template.xlsx')).arrayBuffer();
-    const xlsx = await fillApcTemplate(tplBuf, apcRows(), { reportDay: state.day });
+    const xlsx = await fillApcTemplate(tplBuf, editedRows(), { reportDay: state.day });
     const html = buildEmailHtml(groups(), { reportDay: state.day, signatureHtml: sigHtml() });
     const bcc = state.bcc.filter(isEmail);
 
@@ -294,6 +300,36 @@ document.querySelectorAll('input[name="dest"]').forEach((r) => {
   r.onchange = () => { if (r.checked) { state.options.dest = r.value; save(CONFIG.storageKeys.options, state.options); updateDestUI(); } };
 });
 $('generate').onclick = generate;
+
+// ---- edición manual del preview (edición libre de celdas + toggle ferry) -------
+const xlsxPreview = $('xlsx-preview');
+function commitEdit(el) {
+  const fid = el.getAttribute('data-fid'); const col = el.getAttribute('data-col');
+  if (fid == null || !col) return;
+  state.cellEdits[`${fid}:${col}`] = el.textContent.replace(/\s+/g, ' ').trim();
+}
+xlsxPreview.addEventListener('focusout', (e) => {
+  const el = e.target.closest?.('.px-edit'); if (!el) return;
+  commitEdit(el);
+  // Re-render SOLO al salir del área editable (no entre celda y celda, para no cortar la edición).
+  const next = e.relatedTarget;
+  if (!(next && next.closest && next.closest('.px-edit'))) setTimeout(render, 0);
+});
+xlsxPreview.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.closest?.('.px-edit')) { e.preventDefault(); e.target.blur(); }
+});
+xlsxPreview.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('.ferry-toggle'); if (!btn) return;
+  const fid = +btn.getAttribute('data-fid');
+  const row = lastRows.find((r) => r._fid === fid); if (!row) return;
+  const marked = isFerryMarked(row);     // toggle: marca FERRY en la PAX vacía, o lo quita
+  for (const c of ['paxIn', 'paxOut']) {
+    const k = `${fid}:${c}`;
+    if (marked) { if (state.cellEdits[k] === 'FERRY') delete state.cellEdits[k]; }
+    else if (row[c] === 'N/A') state.cellEdits[k] = 'FERRY';
+  }
+  render();
+});
 document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
     const v = t.dataset.view;

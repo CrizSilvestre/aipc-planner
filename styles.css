@@ -135,3 +135,11 @@ input[type=date] { padding: 8px 10px; border: 1px solid var(--line-2); border-ra
 .tab:hover { background: #f5f7f9; }
 .tab.active { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 600; }
 .xlsx-frame { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 12px; overflow: auto; max-height: 72vh; }
+
+/* AIPC: edición libre de celdas del preview + toggle ferry (lo editado va al Excel) */
+.xlsx-frame .px-edit { cursor: text; outline: none; }
+.xlsx-frame .px-edit:hover { background: #eef6ff; }
+.xlsx-frame .px-edit:focus { background: #fff; box-shadow: inset 0 0 0 2px var(--green); }
+.ferry-toggle { font-size: 11px; line-height: 1; margin-left: 4px; padding: 1px 4px; border: 1px solid #d9b300; border-radius: 4px; background: #fff7e0; color: #9a7d00; cursor: pointer; vertical-align: middle; }
+.ferry-toggle:hover { background: #ffeebf; }
+.ferry-toggle.on { background: #9a7d00; color: #fff; border-color: #9a7d00; }

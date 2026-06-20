@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import { parseAmsClipboard } from '../src/amsParse.mjs';
 import { toApcRows } from '../src/flightTransform.mjs';
 import { fillApcTemplate } from '../src/xlsxApc.mjs';
+import { applyEdits } from '../src/cellEdits.mjs';
 
 const TEMPLATE = '/Users/usuario/Downloads/CAE-GOA-F23 Asignación de Correas, Posiciones & Gates APC-Plantilla.xlsx';
 const tsv = readFileSync(new URL('./datos_raw.tsv', import.meta.url), 'utf8');
@@ -56,6 +57,14 @@ ok('autofiltro presente', !!ws.autoFilter);
 const view = (ws.views || [])[0] || {};
 ok('vista Normal (sin pageBreakPreview ni líneas de página)', view.state === 'normal' && view.style !== 'pageBreakPreview');
 ok('sin saltos de página manuales heredados', !(ws.model?.rowBreaks?.length) && !(ws.model?.colBreaks?.length));
+
+// Edición manual del preview: lo editado debe ir TAL CUAL al Excel (FERRY en PAX vacía).
+const edited = applyEdits(toApcRows(parseAmsClipboard(tsv), { reportDay: '2026-06-20' }), { '0:paxOut': 'FERRY' });
+const ebuf = await fillApcTemplate(readFileSync(TEMPLATE), edited, { reportDay: '2026-06-20' });
+const ewb = new ExcelJS.Workbook(); await ewb.xlsx.load(ebuf);
+let ferryWritten = false;
+ewb.getWorksheet('Fecha').eachRow((row, rn) => { if (rn >= 3 && String(row.getCell(11).value) === 'FERRY') ferryWritten = true; });
+ok('edición manual · "FERRY" (PAX OUT) escrito tal cual en el Excel', ferryWritten);
 
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS · escrito test/APC_generado.xlsx');
 process.exit(fails ? 1 : 0);

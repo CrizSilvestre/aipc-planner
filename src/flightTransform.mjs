@@ -49,7 +49,7 @@ export function toApcRows(flights, { reportDay }) {
   // Idempotente: los componentes crudos _c1/_c2 se conservan en cada fecha.
   const fmt = finalizeDateFormat(flights, reportDay);
 
-  const rows = flights.map((f) => {
+  const rows = flights.map((f, i) => {
     const sd = isoDay(f.staDT);
     const dd = isoDay(f.stdDT);
     // Excepción de madrugada: el vuelo cruza UNA medianoche (STD el día siguiente a STA)
@@ -99,6 +99,7 @@ export function toApcRows(flights, { reportDay }) {
       ckin: (f.ckin || '').trim(),
       over: overIn && overOut ? 'BOTH' : overIn ? 'IN' : overOut ? 'OUT' : null,
       ferry,
+      _fid: i,                       // id estable del vuelo (índice en el lote) para ediciones manuales
       _staKey: dtNum(f.staDT),
       _stdKey: dtNum(f.stdDT),
     };

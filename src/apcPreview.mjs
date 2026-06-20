@@ -1,5 +1,9 @@
 // src/apcPreview.mjs — vista previa HTML de la tabla APC (mismos datos que el .xlsx).
 // Réplica visual: encabezado verde, FECHA, filas OVER, N/A y fila de totales en rojo.
+// Celdas editables (edición libre): cada celda salvo VUELO es contenteditable; los
+// cambios se guardan por sesión y SÍ van al Excel. Toggle ⛴ por vuelo → FERRY en la PAX vacía.
+import { EDITABLE, isFerryable, isFerryMarked } from './cellEdits.mjs';
+
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -27,13 +31,28 @@ export function renderApcTable(apcRows, { reportDay }) {
 
   const head = COLS.map(([, label]) => `<th style="${th}">${label}</th>`).join('');
   const body = apcRows.map((r) => {
-    // Posible ferry → fila resaltada en amarillo (solo aviso para revisar; NO afecta el .xlsx).
+    // Posible ferry (auto) → fila resaltada en amarillo, solo como aviso visual.
     const rowBg = r.ferry ? ' style="background:#FFF2CC"' : '';
-    return `<tr${rowBg}>${COLS.map(([k]) => {
+    const marked = isFerryMarked(r);
+    const cells = COLS.map(([k]) => {
       const v = esc(r[k]);
-      const extra = v === 'OVER' ? ';font-weight:bold;color:#c00000' : (v === 'N/A' ? ';color:#888' : '');
-      return `<td style="${td}${extra}">${v}</td>`;
-    }).join('')}</tr>`;
+      const extra = v === 'OVER' ? ';font-weight:bold;color:#c00000'
+        : v === 'FERRY' ? ';font-weight:bold;color:#9a7d00'
+        : (v === 'N/A' ? ';color:#888' : '');
+      if (k === 'vuelo') {
+        // VUELO (nº) no editable; lleva el toggle de ferry en los vuelos candidatos.
+        const btn = isFerryable(r)
+          ? ` <button type="button" class="ferry-toggle${marked ? ' on' : ''}" data-fid="${r._fid}"`
+            + ` title="${marked ? 'Quitar ferry (vuelve a N/A)' : 'Marcar ferry (PAX vacía → FERRY)'}">⛴</button>`
+          : '';
+        return `<td style="${td}${extra}">${v}${btn}</td>`;
+      }
+      // Celda editable (edición libre): contenteditable + data para el override de sesión.
+      return EDITABLE.includes(k)
+        ? `<td class="px-edit" contenteditable="true" data-fid="${r._fid}" data-col="${k}" style="${td}${extra}">${v}</td>`
+        : `<td style="${td}${extra}">${v}</td>`;
+    }).join('');
+    return `<tr${rowBg}>${cells}</tr>`;
   }).join('');
 
   const totalsRow = '<tr>'
@@ -60,5 +79,6 @@ export function renderApcTable(apcRows, { reportDay }) {
     + legend
     + '<table style="border-collapse:collapse;font-family:Arial,sans-serif">'
     + `<thead><tr>${head}</tr></thead><tbody>${body}${totalsRow}</tbody></table>`
-    + `<div style="margin-top:8px;color:#888;font-size:11px">${apcRows.length} vuelos · réplica de lo que va en el adjunto .xlsx</div></div>`;
+    + `<div style="margin-top:8px;color:#888;font-size:11px">${apcRows.length} vuelos · ✏️ clic en una celda para editar`
+    + ' · ⛴ marca un vuelo como ferry (PAX vacía → FERRY) · <b>lo que edites aquí va en el Excel adjunto</b></div></div>';
 }
