@@ -1,0 +1,41 @@
+// src/supervisorTable.mjs — grupos de supervisores → tabla HTML "navy" del correo
+// (encabezados azul oscuro, texto blanco centrado, filas numeradas, nombre - teléfono).
+import { CONFIG } from './config.mjs';
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Títulos tal como salen en el correo (mayúsculas).
+const NAVY_TITLES = {
+  Centro: 'SUPERVISOR DE CENTRO OPERACIONES',
+  Rampa1: 'SUPERVISOR DE OPERACIONES RAMPA 1',
+  MakeUp: 'SUPERVISOR DE OPERACIONES MAKE UP',
+};
+
+export function renderSupervisorTable(groups, { reportDay }) {
+  const navy = CONFIG.navyColor;
+  const W = CONFIG.table.width;
+  const [y, m, d] = reportDay.split('-').map(Number);
+  const fecha = `${m}/${d}/${y}`;   // formato del correo (M/D/AAAA)
+
+  const head = `background:${navy};color:#ffffff;font-weight:bold;text-align:center;border:1px solid #000000;padding:4px 6px`;
+  const cell = 'border:1px solid #000000;padding:3px 6px;text-align:center';
+  const cellName = 'border:1px solid #000000;padding:3px 8px;text-align:left';
+
+  // título superior (faltaba) + fila de fecha (en una sola celda para que no se parta)
+  let rows = `<tr><td colspan="3" style="${head}">${esc(CONFIG.supervisorTitle)}</td></tr>`
+    + `<tr><td colspan="3" style="${cell};text-align:left;font-weight:bold">Fecha:&nbsp;&nbsp;${fecha}</td></tr>`;
+
+  for (const g of groups) {
+    rows += `<tr><td colspan="2" style="${head}">${NAVY_TITLES[g.key] || esc(g.title)}</td>`
+      + `<td style="${head}">HORARIO</td></tr>`;
+    for (const r of g.rows) {
+      rows += `<tr><td style="${cell}">${r.n}</td>`
+        + `<td style="${cellName}">${esc(r.name)} - ${esc(r.phone)}</td>`
+        + `<td style="${cell}">${esc(r.shift)}</td></tr>`;
+    }
+  }
+  // columnas: nº (30) · nombre (auto) · horario (95) · total ≈ 530 para que coincida con la firma
+  return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;table-layout:fixed;`
+    + `width:${W}px;font-family:Arial,sans-serif;font-size:${CONFIG.table.fontSize};margin:12px 0">`
+    + `<colgroup><col style="width:30px"><col><col style="width:95px"></colgroup>${rows}</table>`;
+}
