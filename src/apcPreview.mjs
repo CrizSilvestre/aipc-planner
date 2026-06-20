@@ -1,0 +1,47 @@
+// src/apcPreview.mjs — vista previa HTML de la tabla APC (mismos datos que el .xlsx).
+// Réplica visual: encabezado verde, FECHA, filas OVER, N/A y fila de totales en rojo.
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+  'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function fechaLarga(reportDay) {
+  const [y, m, d] = reportDay.split('-').map(Number);
+  const wd = new Date(y, m - 1, d).getDay();
+  const s = `${DIAS[wd]}, ${String(d).padStart(2, '0')} de ${MESES[m - 1]} de ${y}`;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const COLS = [
+  ['vuelo', 'VUELO'], ['aerolinea', 'AEROLINEA'], ['vueloNo', 'VUELO No.'], ['sta', 'STA'], ['std', 'STD'],
+  ['ruta', 'RUTA'], ['acType', 'A/C TYPE'], ['handler', 'HANDLER'], ['paxIn', 'PAX IN'], ['paxTransito', 'PAX TRANSITO'],
+  ['paxOut', 'PAX OUT'], ['correa', 'CORREA'], ['stand', 'STAND'], ['gate', 'GATE'], ['ckin', 'CK-IN TERM'],
+];
+const sumPax = (rows, key) => rows.reduce((a, r) => a + (/^\d+$/.test(r[key]) ? +r[key] : 0), 0);
+
+export function renderApcTable(apcRows, { reportDay }) {
+  if (!apcRows.length) return '<div class="placeholder">Pega los datos de AMS para ver el Excel.</div>';
+
+  const th = 'background:#92D050;border:1px solid #000;padding:4px 6px;font-weight:bold;text-align:center;white-space:nowrap';
+  const td = 'border:1px solid #000;padding:2px 6px;text-align:center;white-space:nowrap';
+  const totTd = 'border:1px solid #000;padding:3px 6px;text-align:center;font-weight:bold;color:#c00000';
+
+  const head = COLS.map(([, label]) => `<th style="${th}">${label}</th>`).join('');
+  const body = apcRows.map((r) => `<tr>${COLS.map(([k]) => {
+    const v = esc(r[k]);
+    const extra = v === 'OVER' ? ';font-weight:bold;color:#c00000' : (v === 'N/A' ? ';color:#888' : '');
+    return `<td style="${td}${extra}">${v}</td>`;
+  }).join('')}</tr>`).join('');
+
+  const totalsRow = '<tr>'
+    + '<td colspan="8" style="border:1px solid #000"></td>'
+    + `<td style="${totTd}">${sumPax(apcRows, 'paxIn')}</td>`
+    + `<td style="${totTd}">${sumPax(apcRows, 'paxTransito')}</td>`
+    + `<td style="${totTd}">${sumPax(apcRows, 'paxOut')}</td>`
+    + '<td colspan="4" style="border:1px solid #000"></td></tr>';
+
+  return '<div style="font-size:11px;color:#000">'
+    + `<div style="font-weight:bold;font-size:13px;margin:0 0 8px">FECHA: ${esc(fechaLarga(reportDay))}</div>`
+    + '<table style="border-collapse:collapse;font-family:Arial,sans-serif">'
+    + `<thead><tr>${head}</tr></thead><tbody>${body}${totalsRow}</tbody></table>`
+    + `<div style="margin-top:8px;color:#888;font-size:11px">${apcRows.length} vuelos · réplica de lo que va en el adjunto .xlsx</div></div>`;
+}

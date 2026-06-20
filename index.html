@@ -89,17 +89,29 @@
     <section class="right">
       <div class="card">
         <div class="preview-head">
-          <h2 style="margin:0">Vista previa del correo</h2>
+          <div class="tabs">
+            <button class="tab active" data-view="correo">📧 Correo</button>
+            <button class="tab" data-view="excel">📊 Excel</button>
+          </div>
           <span class="mailmeta" id="mailmeta"></span>
         </div>
-        <div class="email-frame">
-          <div class="email-toolbar">
-            <span class="subj">Asunto: Asignación de Correas, Posiciones &amp; Gates AIPC</span>
-            <span class="spacer" style="flex:1"></span>
-            <span>📎 <b id="att-name">APC.xlsx</b></span>
+
+        <div id="view-correo">
+          <div class="email-frame">
+            <div class="email-toolbar">
+              <span class="subj">Asunto: Asignación de Correas, Posiciones &amp; Gates AIPC</span>
+              <span class="spacer" style="flex:1"></span>
+              <span>📎 <b id="att-name">APC.xlsx</b></span>
+            </div>
+            <div class="email-body" id="preview">
+              <div class="placeholder">Pega los datos de AMS y sube el PDF para ver el correo.</div>
+            </div>
           </div>
-          <div class="email-body" id="preview">
-            <div class="placeholder">Pega los datos de AMS y sube el PDF para ver el correo.</div>
+        </div>
+
+        <div id="view-excel" style="display:none">
+          <div class="xlsx-frame" id="xlsx-preview">
+            <div class="placeholder">Pega los datos de AMS para ver el Excel.</div>
           </div>
         </div>
       </div>

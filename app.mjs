@@ -6,6 +6,7 @@ import { fillApcTemplate } from './src/xlsxApc.mjs';
 import { itemsFromTextContent, parseSchedule } from './src/pdfSchedule.mjs';
 import { buildSupervisorAssignment } from './src/supervisorEngine.mjs';
 import { buildEmailHtml } from './src/emailTemplate.mjs';
+import { renderApcTable } from './src/apcPreview.mjs';
 import { buildEml, downloadEml } from './src/eml.mjs';
 import { copyRichHtml, gmailComposeUrl } from './src/share.mjs';
 import { CONFIG } from './src/config.mjs';
@@ -150,8 +151,10 @@ function validate() {
 }
 
 function render() {
+  const rows = apcRows();
   $('preview').innerHTML = buildEmailHtml(groups(), { reportDay: state.day, signatureHtml: sigHtml() });
-  $('mailmeta').innerHTML = `${apcRows().length} vuelos · ${state.day}`;
+  $('xlsx-preview').innerHTML = renderApcTable(rows, { reportDay: state.day });
+  $('mailmeta').innerHTML = `${rows.length} vuelos · ${state.day}`;
   const { checks, ready } = validate();
   $('checklist').innerHTML = checks.map((c) =>
     `<div class="check ${c.ok ? 'ok' : 'no'}"><span class="ic">${c.ok ? '✓' : ''}</span>` +
@@ -254,6 +257,14 @@ document.querySelectorAll('input[name="dest"]').forEach((r) => {
   r.onchange = () => { if (r.checked) { state.options.dest = r.value; save(CONFIG.storageKeys.options, state.options); updateDestUI(); } };
 });
 $('generate').onclick = generate;
+document.querySelectorAll('.tab').forEach((t) => {
+  t.onclick = () => {
+    const v = t.dataset.view;
+    $('view-correo').style.display = v === 'correo' ? '' : 'none';
+    $('view-excel').style.display = v === 'excel' ? '' : 'none';
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+  };
+});
 
 updateDestUI();
 markPdf();   // restaura el horario guardado (si lo hay)
