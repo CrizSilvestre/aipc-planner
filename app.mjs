@@ -16,7 +16,14 @@ const $ = (id) => document.getElementById(id);
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const isEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim());
-const tomorrowISO = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
+const tomorrowISO = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+};
 
 const savedSchedule = load(CONFIG.storageKeys.schedule, null);
 const state = {
@@ -64,11 +71,20 @@ async function onPdf(file) {
   render();
 }
 
+function truncName(name, max = 45) {
+  if (!name || name.length <= max) return name;
+  const ext = name.lastIndexOf('.') > 0 ? name.slice(name.lastIndexOf('.')) : '';
+  const base = name.slice(0, name.length - ext.length);
+  const keep = max - ext.length - 1; // 1 for the ellipsis char
+  return base.slice(0, keep) + '…' + ext;
+}
+
 function markPdf() {
   if (!state.schedule) return;
   const fp = $('drop-pdf');
   fp.classList.add('filled');
-  fp.innerHTML = `<div class="name">📄 ${state.pdfName || 'Horario'}</div>`
+  const displayName = truncName(state.pdfName) || 'Horario';
+  fp.innerHTML = `<div class="name" title="${(state.pdfName || '').replace(/"/g, '&quot;')}">📄 ${displayName}</div>`
     + `<div class="meta">${state.schedule.employees.length} empleados · ${state.schedule.days.length} días · guardado ✓</div>`;
   $('pdf-hint').innerHTML = 'Guardado para el mes — no hay que volver a subirlo. <a href="#" id="pdf-clear">Quitar</a>';
   $('pdf-clear').onclick = (e) => { e.preventDefault(); clearPdf(); };
@@ -125,7 +141,7 @@ function validate() {
   const bcc = state.bcc.filter(isEmail);
   const checks = [
     ['Datos de AMS pegados', state.flights.length > 0, `${state.flights.length} vuelos`],
-    ['PDF Mandos Medios cargado', !!state.schedule, state.pdfName || ''],
+    ['PDF Mandos Medios cargado', !!state.schedule, truncName(state.pdfName, 40) || ''],
     ['Día seleccionado', !!state.day, state.day],
     ['Supervisores detectados', supCount > 0, `${supCount} en turno`],
     ['Destinatarios (CCO)', bcc.length > 0, `${bcc.length}`],

@@ -47,7 +47,7 @@ body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:
 .drop:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(14,124,90,.18); }
 .drop.filled { border-style: solid; border-color: var(--green); background: #f3faf7; text-align: left; color: var(--ink); }
 .drop .big { font-size: 22px; }
-.drop .name { font-weight: 600; word-break: break-all; }
+.drop .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drop .meta { font-size: 12px; color: var(--muted); }
 .drop-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
