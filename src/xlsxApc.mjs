@@ -102,6 +102,19 @@ export async function fillApcTemplate(templateBuf, apcRows, { reportDay }) {
     for (let c = 1; c <= COLS.length; c++) { const cell = xr.getCell(c); cell.value = null; cell.style = {}; }
   }
 
+  // La plantilla traía FILAS completas en amarillo (57 y 84) cuyo relleno solo asoma DESPUÉS
+  // de la columna O (la asignación es A–O; esas celdas no tienen estilo propio y heredan el de
+  // la fila). Era un relleno a nivel de FILA, no por celda — por eso no se veía en A–O ni en el
+  // escaneo por celdas. Se apaga el relleno de cualquier fila que lo traiga; las celdas con
+  // estilo propio (datos, encabezado verde, totales) NO se afectan.
+  for (let r = 1; r <= clearTo; r++) {
+    const row = ws.getRow(r);
+    const rf = row.fill;
+    if (rf && rf.type === 'pattern' && (rf.fgColor?.argb || rf.bgColor?.argb)) {
+      row.fill = { type: 'pattern', pattern: 'none' };
+    }
+  }
+
   // filtro solo sobre encabezado + datos (no la fila de totales)
   ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: lastData, column: COLS.length } };
 

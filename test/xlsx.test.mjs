@@ -58,6 +58,14 @@ const view = (ws.views || [])[0] || {};
 ok('vista Normal (sin pageBreakPreview ni líneas de página)', view.state === 'normal' && view.style !== 'pageBreakPreview');
 ok('sin saltos de página manuales heredados', !(ws.model?.rowBreaks?.length) && !(ws.model?.colBreaks?.length));
 
+// la asignación es A–O (15 col): nada después de la columna O (la plantilla traía amarillo en P+).
+let beyondO = 0;
+for (let r = 1; r <= 130; r++) for (let c = 16; c <= 40; c++) {
+  const c2 = ws.getCell(r, c); const f = c2.fill;
+  if ((f && f.type === 'pattern' && (f.fgColor?.argb || f.bgColor?.argb)) || (c2.value != null && c2.value !== '')) beyondO++;
+}
+ok('limpio después de O · sin relleno ni valor en columnas P+ (adiós amarillo)', beyondO === 0);
+
 // Edición manual del preview: lo editado debe ir TAL CUAL al Excel (FERRY en PAX vacía).
 const edited = applyEdits(toApcRows(parseAmsClipboard(tsv), { reportDay: '2026-06-20' }), { '0:paxOut': 'FERRY' });
 const ebuf = await fillApcTemplate(readFileSync(TEMPLATE), edited, { reportDay: '2026-06-20' });
