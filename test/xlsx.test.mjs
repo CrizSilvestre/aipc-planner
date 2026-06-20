@@ -51,5 +51,11 @@ ok('totales · rojo + negrita', fI.font?.bold === true && /FF0000/i.test(fI.font
 
 ok('autofiltro presente', !!ws.autoFilter);
 
+// la plantilla venía en "Vista previa de salto de página" (dibuja líneas de límite
+// de página sin sentido) → el generado debe salir en vista Normal, sin saltos.
+const view = (ws.views || [])[0] || {};
+ok('vista Normal (sin pageBreakPreview ni líneas de página)', view.state === 'normal' && view.style !== 'pageBreakPreview');
+ok('sin saltos de página manuales heredados', !(ws.model?.rowBreaks?.length) && !(ws.model?.colBreaks?.length));
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS · escrito test/APC_generado.xlsx');
 process.exit(fails ? 1 : 0);

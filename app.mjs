@@ -8,7 +8,7 @@ import { buildSupervisorAssignment } from './src/supervisorEngine.mjs';
 import { buildEmailHtml } from './src/emailTemplate.mjs';
 import { renderApcTable } from './src/apcPreview.mjs';
 import { buildEml, downloadEml } from './src/eml.mjs';
-import { copyRichHtml, gmailComposeUrl } from './src/share.mjs';
+import { copyRichHtml, gmailComposeUrl, outlookWebComposeUrl } from './src/share.mjs';
 import { CONFIG } from './src/config.mjs';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.min.mjs', import.meta.url).href;
@@ -187,6 +187,16 @@ async function generate() {
       return;
     }
 
+    // Outlook Web (Office 365): mismo patrón que Gmail (el compose web no adjunta por pegar)
+    if (state.options.dest === 'outlookweb') {
+      const ok = await copyRichHtml(html);
+      downloadXlsx(xlsx, CONFIG.attachmentName);
+      window.open(outlookWebComposeUrl({ subject: CONFIG.subject, bcc }), '_blank', 'noopener');
+      toast(ok ? 'Correo copiado + Excel descargado · pega (Ctrl/Cmd+V) y adjunta el Excel en Outlook Web'
+               : 'Excel descargado · abre Outlook Web, pega el correo y adjunta el Excel');
+      return;
+    }
+
     // Outlook: .eml con el Excel adjunto
     const eml = buildEml({
       subject: CONFIG.subject, bcc, html,
@@ -246,10 +256,14 @@ $('att-name').textContent = CONFIG.attachmentName;
 $('year').textContent = new Date().getFullYear();
 
 function updateDestUI() {
-  const gmail = state.options.dest === 'gmail';
-  $('generate').textContent = gmail ? 'Copiar correo y abrir Gmail' : 'Generar correo y abrir en Outlook';
-  $('gen-hint').innerHTML = gmail
-    ? 'Copia el cuerpo + descarga el Excel; en Gmail pega (Ctrl/Cmd+V) y adjunta el Excel.'
+  const dest = state.options.dest;
+  const webmail = dest === 'gmail' || dest === 'outlookweb';
+  const nombre = dest === 'gmail' ? 'Gmail' : 'Outlook Web';
+  $('generate').textContent = webmail
+    ? `Copiar correo y abrir ${nombre}`
+    : 'Generar correo y abrir en Outlook';
+  $('gen-hint').innerHTML = webmail
+    ? `Copia el cuerpo + descarga el Excel; en ${nombre} pega (Ctrl/Cmd+V) y adjunta el Excel.`
     : 'Genera el Excel APC adjunto + el correo con la tabla de supervisores.';
 }
 document.querySelectorAll('input[name="dest"]').forEach((r) => {

@@ -9,6 +9,16 @@ export function gmailComposeUrl({ subject = 'Weather', bcc = [] } = {}) {
   return 'https://mail.google.com/mail/?' + p.toString();
 }
 
+// Outlook Web (Office 365 corporativo). Igual que Gmail: el deep-link sólo lleva
+// asunto/destinatarios (no acepta HTML), así que el cuerpo se copia y se pega.
+// Outlook separa destinatarios con ";" (no con ",").
+export function outlookWebComposeUrl({ subject = '', bcc = [] } = {}) {
+  const p = new URLSearchParams();
+  if (bcc.length) p.set('bcc', bcc.join(';'));
+  p.set('subject', subject);
+  return 'https://outlook.office.com/mail/deeplink/compose?' + p.toString();
+}
+
 export function htmlToText(html) {
   const d = document.createElement('div');
   d.innerHTML = html;

@@ -20,9 +20,11 @@ export function renderSupervisorTable(groups, { reportDay }) {
   // La fuente va EN CADA celda: Outlook de escritorio (motor de Word) no la hereda
   // del <table> y las celdas caerían a Times New Roman en una PC corporativa.
   const f = `font-family:Arial, sans-serif;font-size:${CONFIG.table.fontSize}`;
-  const head = `${f};background:${navy};color:#ffffff;font-weight:bold;text-align:center;border:1px solid #000000;padding:4px 6px`;
-  const cell = `${f};color:#000000;border:1px solid #000000;padding:3px 6px;text-align:center`;
-  const cellName = `${f};color:#000000;border:1px solid #000000;padding:3px 8px;text-align:left`;
+  // Padding compacto (más estilizado): se redujo el espacio celda-borde respecto a
+  // la versión anterior (4/3px vert · 6/8px horiz) para que la tabla quede más fina.
+  const head = `${f};background:${navy};color:#ffffff;font-weight:bold;text-align:center;border:1px solid #000000;padding:2px 6px`;
+  const cell = `${f};color:#000000;border:1px solid #000000;padding:2px 5px;text-align:center`;
+  const cellName = `${f};color:#000000;border:1px solid #000000;padding:2px 6px;text-align:left`;
 
   // título superior (faltaba) + fila de fecha (en una sola celda para que no se parta)
   let rows = `<tr><td colspan="3" style="${head}">${esc(CONFIG.supervisorTitle)}</td></tr>`

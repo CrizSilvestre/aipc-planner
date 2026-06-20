@@ -105,5 +105,12 @@ export async function fillApcTemplate(templateBuf, apcRows, { reportDay }) {
   // filtro solo sobre encabezado + datos (no la fila de totales)
   ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: lastData, column: COLS.length } };
 
+  // La plantilla venía guardada en "Vista previa de salto de página" (pageBreakPreview)
+  // con saltos manuales y zoom 55% → Excel dibujaba líneas de límite de página sobre la
+  // hoja que no tienen sentido en el reporte. Forzamos vista Normal al 100% y limpiamos
+  // los saltos para que el generado salga limpio.
+  ws.views = [{ state: 'normal', showGridLines: true, zoomScale: 100, zoomScaleNormal: 100 }];
+  if (ws.model) { ws.model.rowBreaks = []; ws.model.colBreaks = []; }
+
   return wb.xlsx.writeBuffer();
 }
