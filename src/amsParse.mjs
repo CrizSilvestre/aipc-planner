@@ -20,7 +20,7 @@ export function parseDateTime(s) {
   let m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);        // año primero (ISO)
   if (m) return { y: +m[1], mo: +m[2], d: +m[3], h, mi };
 
-  m = s.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);           // D/M o M/D (se decide por lote)
+  m = s.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);         // D/M o M/D (se decide por lote)
   if (m) {
     let y = +m[3]; if (y < 100) y += 2000;
     return { y, _c1: +m[1], _c2: +m[2], h, mi };
@@ -28,28 +28,50 @@ export function parseDateTime(s) {
   return { h, mi, raw: s };   // sin fecha, pero con hora
 }
 
-// Detecta el formato del lote: si algún primer número es >12 → día/mes (D/M);
-// si algún segundo número es >12 → mes/día (M/D). Por defecto D/M.
-export function finalizeDateFormat(records) {
+// Decide D/M vs M/D para TODO el lote y completa dt.d / dt.mo. Estrategia robusta
+// (mismo resultado en cualquier PC, sin importar el locale de Windows):
+//   1) Con reportDay → ANCLA: la mayoría de los vuelos de un reporte son de ese día.
+//      Probamos las dos lecturas y elegimos la que hace caer más fechas en reportDay
+//      SIN producir meses imposibles (>12). Esto corrige el locale US (M/D) y funciona
+//      aunque todas las fechas sean ≤12 (ambiguas), que la heurística >12 no resuelve.
+//   2) Sin reportDay → heurística: algún componente >12 delata el formato.
+//   3) Empate / sin señal → por defecto D/M.
+export function finalizeDateFormat(records, reportDay) {
+  const slots = [];
+  for (const rec of records) for (const dt of [rec.staDT, rec.stdDT]) if (dt && dt._c1 != null) slots.push(dt);
+
   let dm = 0; let md = 0;
-  for (const rec of records) {
-    for (const dt of [rec.staDT, rec.stdDT]) {
-      if (dt && dt._c1 != null) {
-        if (dt._c1 > 12 && dt._c2 <= 12) dm++;
-        else if (dt._c2 > 12 && dt._c1 <= 12) md++;
-      }
-    }
+  for (const dt of slots) {
+    if (dt._c1 > 12 && dt._c2 <= 12) dm++;
+    else if (dt._c2 > 12 && dt._c1 <= 12) md++;
   }
-  const dayFirst = !(md > dm);   // por defecto D/M; M/D solo si gana
-  for (const rec of records) {
-    for (const dt of [rec.staDT, rec.stdDT]) {
-      if (dt && dt._c1 != null) {
-        dt.d = dayFirst ? dt._c1 : dt._c2;
-        dt.mo = dayFirst ? dt._c2 : dt._c1;
-      }
+
+  // Puntaje de "encaje" con reportDay para una lectura dada (true = día primero).
+  const fit = (dayFirst) => {
+    let s = 0;
+    for (const dt of slots) {
+      const d = dayFirst ? dt._c1 : dt._c2;
+      const mo = dayFirst ? dt._c2 : dt._c1;
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) { s -= 3; continue; }   // lectura imposible
+      if (`${dt.y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` === reportDay) s += 2;
     }
+    return s;
+  };
+
+  let dayFirst; let method;
+  if (reportDay && slots.length) {
+    const sDM = fit(true); const sMD = fit(false);
+    if (sDM !== sMD) { dayFirst = sDM > sMD; method = 'reportDay'; }
+    else { dayFirst = !(md > dm); method = (dm || md) ? 'votos' : 'defecto'; }
+  } else {
+    dayFirst = !(md > dm); method = (dm || md) ? 'votos' : 'defecto';
   }
-  return { dayFirst, dm, md };
+
+  for (const dt of slots) {
+    dt.d = dayFirst ? dt._c1 : dt._c2;
+    dt.mo = dayFirst ? dt._c2 : dt._c1;
+  }
+  return { dayFirst, dm, md, method, slots: slots.length };
 }
 
 export function parseAmsClipboard(text) {

@@ -76,5 +76,29 @@ ok('ferry-in · llega vacío sin correa → ferry=true', fIn?.ferry === true);
 ok('comercial completo (con PAX+gate+correa) → NO ferry', fNrm?.ferry === false);
 ok('ferry · es SOLO aviso: no marca OVER ni cambia STA/STD', fOut?.sta !== 'OVER' && fOut?.std !== 'OVER');
 
+// ── Ventana madrugada ampliada a 01:59: un vuelo que cruza UNA medianoche y SALE
+//    entre 00:00 y 01:59 NO es OVER (operación continua, conserva su data). Desde 02:00 sí.
+const mkCross = (stdTime) => `Z\tZ 1\tZ 1\t20/6/26 23:30\t21/6/26 ${stdTime}\tMIA\tMIA\t320\tH\t120\t\t80\tC1\tA1\tG1\tT1`;
+for (const t of ['00:15', '00:45', '01:15', '01:59']) {
+  const r = toApcRows(parseAmsClipboard(mkCross(t)), { reportDay: '2026-06-21' })[0];
+  ok(`madrugada · STD ${t} → NO OVER (operación del mismo día)`, r.sta !== 'OVER' && r.std !== 'OVER');
+}
+const r0200 = toApcRows(parseAmsClipboard(mkCross('02:00')), { reportDay: '2026-06-21' })[0];
+ok('madrugada · STD 02:00 → lógica normal (OVER_IN, STA=OVER)', r0200.sta === 'OVER');
+
+// ── Detección anclada en reportDay: fechas AMBIGUAS (ambos componentes ≤12) que la
+//    heurística >12 no puede resolver. M/D real "6/8/26" con reportDay 8-jun: si se
+//    leyera D/M (defecto viejo) saldría agosto → OVER falso; anclado en reportDay se
+//    lee bien como junio 8 → NO over. (Reproduce el riesgo de la PC corporativa.)
+const amb = 'A\tA 1\tA 1\t6/8/26 10:00\t6/8/26 12:00\tMIA\tMIA\t320\tH\t100\t\t90\tC1\tA1\tG1\tT1';
+const ar = toApcRows(parseAmsClipboard(amb), { reportDay: '2026-06-08' });
+ok('detección anclada · M/D ambiguo se resuelve por reportDay (formato M/D)', ar.diag.formato.startsWith('M/D') && ar.diag.metodo === 'reportDay');
+ok('detección anclada · vuelo del día NO sale OVER por mala lectura de fecha', ar[0].sta !== 'OVER' && ar[0].std !== 'OVER');
+
+// ── Diagnóstico adjunto (alimenta logs + advertencia de 0 OVER en la GUI).
+ok('diag · expone formato/over/overIn/overOut/sinFecha', rows.diag
+  && typeof rows.diag.formato === 'string' && rows.diag.over >= 1
+  && rows.diag.overIn >= 1 && rows.diag.overOut >= 1 && rows.diag.sinFecha === 0);
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

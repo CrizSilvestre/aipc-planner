@@ -65,6 +65,13 @@ ok('Word-safe · cada <a> (enlace) trae font-family', everyHasFont(tags(/<a\b[^>
 ok('Word-safe · interlineado en pt + mso-line-height-rule', /mso-line-height-rule:exactly/.test(htmlPart) && /line-height:17pt/.test(htmlPart));
 ok('Word-safe · anchos de columna como atributo (Word ignora colgroup)', /<td width="30"/.test(htmlPart) && /<td width="95"/.test(htmlPart));
 
+// Outlook Web (OWA) sanea el HTML al pegar: el color de fondo debe ir como ATRIBUTO
+// bgcolor (no solo shorthand "background"), alineación y bordes como atributos también.
+ok('OWA · encabezados navy con bgcolor de atributo', new RegExp(`bgcolor="${CONFIG.navyColor}"`).test(htmlPart));
+ok('OWA · sin shorthand "background:" (usa background-color)', !/style="[^"]*background:#/.test(htmlPart) && /background-color:/.test(htmlPart));
+ok('OWA · celdas con align (center/left) de atributo', /<td[^>]*align="center"/.test(htmlPart) && /<td[^>]*align="left"/.test(htmlPart));
+ok('OWA · tabla con border="1" + border-collapse (rejilla 1px sin duplicar)', /<table[^>]*border="1"[^>]*/.test(htmlPart) && /border-collapse:collapse/.test(htmlPart));
+
 // adjunto: decodificar y comprobar firma ZIP de un .xlsx (PK)
 const attSeg = eml.split('Content-Disposition: attachment')[1];   // "; filename=...\r\n\r\n<b64>\r\n--bnd--"
 const attB64 = attSeg.split('\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, '');

@@ -5,9 +5,12 @@
 //  - OVER_IN    = STA día anterior → STA="OVER", solo salida, PAX IN/TRÁNSITO = N/A, CORREA = N/A
 //  - OVER_OUT   = STD día posterior → STD="OVER", solo llegada, PAX OUT = N/A, GATE = N/A
 //  - MADRUGADA  = Si el vuelo cruza UNA medianoche (STD el día siguiente a STA) y SALE
-//                 antes de la 01:00, NO es OVER (no es pernocta real; la regla es por la
-//                 hora de SALIDA — llega de noche y sale 00:xx = operación continua).
+//                 entre 00:00 y 01:59, NO es OVER (no es pernocta real; la regla es por
+//                 la hora de SALIDA — llega de noche y sale 00:xx/01:xx = operación
+//                 continua que conserva stand/gate/correa/pax). Desde 02:00 → lógica normal.
 //  - N/A        = PAX vacío O 0 → "N/A"; CORREA/GATE vacío → "N/A"; STAND obligatorio
+import { finalizeDateFormat } from './amsParse.mjs';
+
 const NA = 'N/A';
 const isEmpty = (v) => v === null || v === undefined
   || String(v).trim() === '' || String(v).trim().toLowerCase() === 'none';
@@ -41,14 +44,19 @@ const dtNum = (dt) => (dt && dt.y != null
 // flights → filas APC.
 // Orden: los OVER (STA=OVER) van ARRIBA (por STD); el resto por STA ascendente.
 export function toApcRows(flights, { reportDay }) {
+  // Re-confirma D/M vs M/D usando el día del reporte como ancla (corrige el locale de
+  // la PC corporativa y mantiene la detección estable aunque se cambie el día).
+  // Idempotente: los componentes crudos _c1/_c2 se conservan en cada fecha.
+  const fmt = finalizeDateFormat(flights, reportDay);
+
   const rows = flights.map((f) => {
     const sd = isoDay(f.staDT);
     const dd = isoDay(f.stdDT);
     // Excepción de madrugada: el vuelo cruza UNA medianoche (STD el día siguiente a STA)
-    // y SALE antes de la 01:00 → no es pernocta real, se deja normal. La regla es por la
+    // y SALE entre 00:00 y 01:59 → no es pernocta real, se deja normal. La regla es por la
     // hora de SALIDA (stdH), y aplica venga de OVER en STA o en STD.
     const stdH = f.stdDT?.h;
-    const madrugada = !!(sd && dd && dd === nextDayISO(sd) && stdH != null && stdH < 1);
+    const madrugada = !!(sd && dd && dd === nextDayISO(sd) && stdH != null && stdH < 2);
     const overIn  = !!(sd && sd < reportDay) && !madrugada;   // llegó antes del día (sin madrugada)
     const overOut = !!(dd && dd > reportDay) && !madrugada;   // sale después del día (sin madrugada)
 
@@ -96,6 +104,14 @@ export function toApcRows(flights, { reportDay }) {
     };
   });
 
+  // Detalle por vuelo (alineado a flights ANTES de ordenar) para el log de diagnóstico.
+  const detalle = rows.map((r, i) => ({
+    vuelo: r.vueloNo,
+    rawSTA: flights[i].sta, rawSTD: flights[i].std,
+    staDia: isoDay(flights[i].staDT), stdDia: isoDay(flights[i].stdDT),
+    over: r.over || '—',
+  }));
+
   rows.sort((a, b) => {
     const aTop = a.sta === 'OVER';
     const bTop = b.sta === 'OVER';
@@ -104,5 +120,23 @@ export function toApcRows(flights, { reportDay }) {
     return a._staKey - b._staKey;              // el resto, por STA ascendente
   });
   rows.forEach((r, i) => { r.vuelo = i + 1; });
+
+  // Diagnóstico de clasificación (logs en la PC corporativa + advertencia de 0 OVER).
+  // No enumerable → no afecta a quien itere el arreglo (Excel/preview/tests).
+  const overIn = rows.filter((r) => r.over === 'IN' || r.over === 'BOTH').length;
+  const overOut = rows.filter((r) => r.over === 'OUT' || r.over === 'BOTH').length;
+  const both = rows.filter((r) => r.over === 'BOTH').length;
+  const sinFecha = flights.filter((f) => !isoDay(f.staDT) && !isoDay(f.stdDT)).length;
+  Object.defineProperty(rows, 'diag', {
+    enumerable: false,
+    value: {
+      reportDay,
+      formato: fmt.dayFirst ? 'D/M (día/mes)' : 'M/D (mes/día)',
+      metodo: fmt.method,           // reportDay | votos | defecto
+      total: rows.length,
+      over: overIn + overOut - both,
+      overIn, overOut, sinFecha, detalle,
+    },
+  });
   return rows;
 }

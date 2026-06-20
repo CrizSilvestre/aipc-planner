@@ -150,15 +150,38 @@ function validate() {
   return { checks, ready: checks.every((c) => c.ok) };
 }
 
+// Diagnóstico OVER (clave para la PC corporativa): log detallado en consola + aviso en
+// pantalla cuando NO se detecta ningún OVER. Permite capturar qué pasa con cada dataset.
+function logOverDiag(diag) {
+  console.info(`[AIPC OVER] día=${diag.reportDay} · formato=${diag.formato} (${diag.metodo}) · `
+    + `vuelos=${diag.total} · OVER=${diag.over} (IN ${diag.overIn}/OUT ${diag.overOut}) · sinFecha=${diag.sinFecha}`);
+  if (diag.over === 0 || diag.sinFecha > 0) {
+    console.warn('[AIPC OVER] 0 OVER o fechas sin parsear — detalle por vuelo (raw STA/STD → día):');
+    (console.table || console.log)(diag.detalle);
+  }
+}
+function overBanner(diag) {
+  const sinFecha = diag.sinFecha > 0 ? ` · ${diag.sinFecha} sin fecha` : '';
+  const info = `Formato fecha: ${diag.formato} · OVER: ${diag.over} (IN ${diag.overIn} / OUT ${diag.overOut})${sinFecha}`;
+  if (diag.over === 0) {
+    return '<div style="margin-top:10px;padding:8px 10px;border-radius:6px;background:#fff4e5;border:1px solid #f0b37e;color:#8a4b00;font-size:13px">'
+      + '⚠️ No se detectaron vuelos OVER. Verificar consistencia de los datos.'
+      + `<br><span style="font-size:11px;opacity:.85">${info}</span></div>`;
+  }
+  return `<div style="margin-top:10px;color:#94a3b8;font-size:11px">${info}</div>`;
+}
+
 function render() {
   const rows = apcRows();
   $('preview').innerHTML = buildEmailHtml(groups(), { reportDay: state.day, signatureHtml: sigHtml() });
   $('xlsx-preview').innerHTML = renderApcTable(rows, { reportDay: state.day });
   $('mailmeta').innerHTML = `${rows.length} vuelos · ${state.day}`;
   const { checks, ready } = validate();
-  $('checklist').innerHTML = checks.map((c) =>
+  let checklistHtml = checks.map((c) =>
     `<div class="check ${c.ok ? 'ok' : 'no'}"><span class="ic">${c.ok ? '✓' : ''}</span>` +
     `<span class="lbl">${c.label}</span><span class="det">${c.detail || ''}</span></div>`).join('');
+  if (state.flights.length && rows.diag) { logOverDiag(rows.diag); checklistHtml += overBanner(rows.diag); }
+  $('checklist').innerHTML = checklistHtml;
   $('generate').disabled = !ready;
   const step = (n, c) => { const el = document.querySelector(`.step[data-step="${n}"]`); el.classList.remove('done', 'active'); if (c) el.classList.add(c); };
   step('ams', state.flights.length ? 'done' : 'active');
