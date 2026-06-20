@@ -221,6 +221,11 @@ $('day').onchange = (e) => { state.day = e.target.value || tomorrowISO(); render
 
 $('bcc-add').onclick = addBcc;
 $('bcc-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBcc(); } });
+$('bcc-clear').onclick = () => {
+  if (state.bcc.length && confirm(`¿Borrar los ${state.bcc.length} destinatarios?`)) {
+    state.bcc = []; bccExpanded = false; persistBcc();
+  }
+};
 
 const sig = $('signature-input');
 sig.innerHTML = state.signature;

@@ -2,11 +2,11 @@
 // Reglas descubiertas (trazables a los archivos del cliente):
 //  - VUELO No.  = Llegada & "/" & número(Salida)  (normal; en OVER solo el vuelo que operó)
 //  - RUTA       = FROM-PUJ-TO (normal) · PUJ-TO (OVER_IN) · FROM-PUJ (OVER_OUT) · PUJ (OVER doble)
-//  - OVER_IN    = STA día anterior → STA="OVER", solo salida, PAX IN/TRÁNSITO = N/A
-//  - OVER_OUT   = STD día posterior → STD="OVER", solo llegada, PAX OUT = N/A
-//  - MADRUGADA  = Si STA/STD cae en día distinto pero la hora es < 01:00, NO es OVER
-//                 (vuelos que cruzan medianoche pero aterrizan/despegan antes de la 1am
-//                  se consideran parte de la operación del día del reporte)
+//  - OVER_IN    = STA día anterior → STA="OVER", solo salida, PAX IN/TRÁNSITO = N/A, CORREA = N/A
+//  - OVER_OUT   = STD día posterior → STD="OVER", solo llegada, PAX OUT = N/A, GATE = N/A
+//  - MADRUGADA  = Si el vuelo cruza UNA medianoche (STD el día siguiente a STA) y SALE
+//                 antes de la 01:00, NO es OVER (no es pernocta real; la regla es por la
+//                 hora de SALIDA — llega de noche y sale 00:xx = operación continua).
 //  - N/A        = PAX vacío O 0 → "N/A"; CORREA/GATE vacío → "N/A"; STAND obligatorio
 const NA = 'N/A';
 const isEmpty = (v) => v === null || v === undefined
@@ -44,14 +44,13 @@ export function toApcRows(flights, { reportDay }) {
   const rows = flights.map((f) => {
     const sd = isoDay(f.staDT);
     const dd = isoDay(f.stdDT);
-    // Excepción de madrugada: vuelos que cruzan medianoche pero aterrizan/despegan
-    // antes de la 01:00 son parte de la operación del día, no se marcan OVER.
-    const staH = f.staDT?.h;
+    // Excepción de madrugada: el vuelo cruza UNA medianoche (STD el día siguiente a STA)
+    // y SALE antes de la 01:00 → no es pernocta real, se deja normal. La regla es por la
+    // hora de SALIDA (stdH), y aplica venga de OVER en STA o en STD.
     const stdH = f.stdDT?.h;
-    const madrugadaIn  = sd && nextDayISO(sd) === reportDay && staH != null && staH < 1;
-    const madrugadaOut = dd && dd === nextDayISO(reportDay) && stdH != null && stdH < 1;
-    const overIn  = !!(sd && sd < reportDay) && !madrugadaIn;   // llegó antes del día (sin madrugada)
-    const overOut = !!(dd && dd > reportDay) && !madrugadaOut;  // sale después del día (sin madrugada)
+    const madrugada = !!(sd && dd && dd === nextDayISO(sd) && stdH != null && stdH < 1);
+    const overIn  = !!(sd && sd < reportDay) && !madrugada;   // llegó antes del día (sin madrugada)
+    const overOut = !!(dd && dd > reportDay) && !madrugada;   // sale después del día (sin madrugada)
 
     let paxIn = naPax(f.paxIn);
     let paxTransito = naPax(f.paxTransito);
@@ -78,9 +77,9 @@ export function toApcRows(flights, { reportDay }) {
       acType: (f.acType || '').trim(),
       handler: (f.handler || '').trim(),
       paxIn, paxTransito, paxOut,
-      correa: naIf(f.correa),
-      stand: (f.stand || '').trim(),   // obligatorio (la validación marca si falta)
-      gate: naIf(f.gate),
+      correa: overIn ? NA : naIf(f.correa),   // OVER en STA → correa N/A (aduanas no la requiere)
+      stand: (f.stand || '').trim(),          // obligatorio (la validación marca si falta)
+      gate: overOut ? NA : naIf(f.gate),      // OVER en STD → gate N/A (no lleva puerta)
       ckin: (f.ckin || '').trim(),
       over: overIn && overOut ? 'BOTH' : overIn ? 'IN' : overOut ? 'OUT' : null,
       _staKey: dtNum(f.staDT),

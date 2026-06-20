@@ -31,6 +31,10 @@ ok('OVER_OUT · UCG 192 (solo llegada) · STD = OVER', ucg?.std === 'OVER');
 ok('OVER_OUT · PAX OUT = N/A', ucg?.paxOut === 'N/A');
 ok('OVER_OUT · STA NO es OVER (llega hoy)', ucg?.sta !== 'OVER');
 ok('OVER_OUT · RUTA = MAR-PUJ (solo llegada)', ucg?.ruta === 'MAR-PUJ');
+ok('OVER_IN · CORREA = N/A (aduanas no la requiere)', shh?.correa === 'N/A');
+ok('OVER_OUT · GATE = N/A (no lleva puerta)', ucg?.gate === 'N/A');
+const madr = find('DWI 5101/6264');   // cruza medianoche pero SALE 0:16 (<01:00) → NO es OVER
+ok('MADRUGADA · DWI 5101/6264 (sale 0:16) → NORMAL', !!madr && madr.sta !== 'OVER' && madr.std !== 'OVER' && madr.ruta === 'MIA-PUJ-EZE');
 
 const dwi = find('DWI 5104');                    // OVER_IN con PAX OUT=0 en el RAW
 ok('PAX 0 → N/A · DWI 5104 · PAX OUT = N/A', dwi?.paxOut === 'N/A');
