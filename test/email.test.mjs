@@ -54,6 +54,17 @@ ok('tabla navy · fila de supervisor con teléfono', /MARY ZAIDA CASTILLO - \(\d
 ok('tabla navy · título superior "SUPERVISORES…AIRSIDE…"', /SUPERVISORES DE OPERACIONES AIRSIDE EN TURNO/.test(htmlPart));
 ok('tabla navy · ancho 530px (coincide con la firma)', /width:530px/.test(htmlPart));
 
+// Continuidad en Outlook de escritorio (motor de Word): la fuente debe ir EN CADA
+// <p> y <td>, no heredada del contenedor — si no, en la PC del trabajo caen a Times
+// New Roman y el correo "se ve más feo". Estas aserciones fijan ese fix.
+const tags = (re) => htmlPart.match(re) || [];
+const everyHasFont = (arr) => arr.length > 0 && arr.every((t) => /font-family/.test(t));
+ok('Word-safe · cada <p> del cuerpo trae font-family', everyHasFont(tags(/<p\b[^>]*>/g)));
+ok('Word-safe · cada <td> de la tabla trae font-family', everyHasFont(tags(/<td\b[^>]*>/g)));
+ok('Word-safe · cada <a> (enlace) trae font-family', everyHasFont(tags(/<a\b[^>]*>/g)));
+ok('Word-safe · interlineado en pt + mso-line-height-rule', /mso-line-height-rule:exactly/.test(htmlPart) && /line-height:17pt/.test(htmlPart));
+ok('Word-safe · anchos de columna como atributo (Word ignora colgroup)', /<td width="30"/.test(htmlPart) && /<td width="95"/.test(htmlPart));
+
 // adjunto: decodificar y comprobar firma ZIP de un .xlsx (PK)
 const attSeg = eml.split('Content-Disposition: attachment')[1];   // "; filename=...\r\n\r\n<b64>\r\n--bnd--"
 const attB64 = attSeg.split('\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, '');
