@@ -4,6 +4,9 @@
 //  - RUTA       = FROM-PUJ-TO (normal) · PUJ-TO (OVER_IN) · FROM-PUJ (OVER_OUT) · PUJ (OVER doble)
 //  - OVER_IN    = STA día anterior → STA="OVER", solo salida, PAX IN/TRÁNSITO = N/A
 //  - OVER_OUT   = STD día posterior → STD="OVER", solo llegada, PAX OUT = N/A
+//  - MADRUGADA  = Si STA/STD cae en día distinto pero la hora es < 01:00, NO es OVER
+//                 (vuelos que cruzan medianoche pero aterrizan/despegan antes de la 1am
+//                  se consideran parte de la operación del día del reporte)
 //  - N/A        = PAX vacío O 0 → "N/A"; CORREA/GATE vacío → "N/A"; STAND obligatorio
 const NA = 'N/A';
 const isEmpty = (v) => v === null || v === undefined
@@ -14,6 +17,15 @@ const naIf = (v) => (isEmpty(v) ? NA : String(v).trim());
 const naPax = (v) => (isEmpty(v) || String(v).trim() === '0' ? NA : String(v).trim());
 const isoDay = (dt) => (dt && dt.y ? `${dt.y}-${String(dt.mo).padStart(2, '0')}-${String(dt.d).padStart(2, '0')}` : null);
 const fmtTime = (dt) => (dt && dt.h != null ? `${dt.h}:${String(dt.mi).padStart(2, '0')}` : '');
+// Siguiente día calendario (para la excepción de madrugada).
+const nextDayISO = (iso) => {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 function flightNo(arr, dep) {
   arr = (arr || '').trim(); dep = (dep || '').trim();
@@ -32,8 +44,14 @@ export function toApcRows(flights, { reportDay }) {
   const rows = flights.map((f) => {
     const sd = isoDay(f.staDT);
     const dd = isoDay(f.stdDT);
-    const overIn = !!(sd && sd < reportDay);    // llegó antes del día → solo opera la salida
-    const overOut = !!(dd && dd > reportDay);   // sale después del día → solo opera la llegada
+    // Excepción de madrugada: vuelos que cruzan medianoche pero aterrizan/despegan
+    // antes de la 01:00 son parte de la operación del día, no se marcan OVER.
+    const staH = f.staDT?.h;
+    const stdH = f.stdDT?.h;
+    const madrugadaIn  = sd && nextDayISO(sd) === reportDay && staH != null && staH < 1;
+    const madrugadaOut = dd && dd === nextDayISO(reportDay) && stdH != null && stdH < 1;
+    const overIn  = !!(sd && sd < reportDay) && !madrugadaIn;   // llegó antes del día (sin madrugada)
+    const overOut = !!(dd && dd > reportDay) && !madrugadaOut;  // sale después del día (sin madrugada)
 
     let paxIn = naPax(f.paxIn);
     let paxTransito = naPax(f.paxTransito);
