@@ -100,5 +100,13 @@ ok('diag · expone formato/over/overIn/overOut/sinFecha', rows.diag
   && typeof rows.diag.formato === 'string' && rows.diag.over >= 1
   && rows.diag.overIn >= 1 && rows.diag.overOut >= 1 && rows.diag.sinFecha === 0);
 
+// ── Mes en LETRAS (formato de aviación; algunas PCs del trabajo lo exportan así según la
+//    config regional de Windows): "22JUN26" / "23-JUN-2026" deben parsear como fecha.
+//    Antes quedaban SIN fecha (sinFecha=N) y daban 0 OVER en esas PCs.
+const avr = toApcRows(parseAmsClipboard('AV\tAV 1\tAV 1\t22JUN26 13:00\t23-JUN-2026 14:00\tMIA\tMIA\t320\tH\t150\t\t40\tC1\tA1\tG1\tT1'), { reportDay: '2026-06-22' });
+ok('mes en letras · "22JUN26" parsea (no queda sin fecha)', avr.diag.sinFecha === 0);
+ok('mes en letras · OVER_OUT detectado (STD el 23 → OVER)', avr[0].std === 'OVER');
+ok('mes en letras · STA del día 22 NO es OVER', avr[0].sta !== 'OVER' && avr[0].sta === '13:00');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
