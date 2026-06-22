@@ -108,5 +108,12 @@ ok('mes en letras · "22JUN26" parsea (no queda sin fecha)', avr.diag.sinFecha =
 ok('mes en letras · OVER_OUT detectado (STD el 23 → OVER)', avr[0].std === 'OVER');
 ok('mes en letras · STA del día 22 NO es OVER', avr[0].sta !== 'OVER' && avr[0].sta === '13:00');
 
+// ── OVER+OVER (avión AOG cruzando TODO el día): VUELO No. = SOLO la llegada (el vuelo de
+//    salida puede cambiar mientras esté en tierra por mantenimiento). reportDay 21, STA 20, STD 22.
+const aogR = toApcRows(parseAmsClipboard('AOG\tAOG 100\tAOG 200\t20/6/26 22:00\t22/6/26 06:00\tMIA\tMIA\t320\tH\t\t\t\t\tA1\t\tT1'), { reportDay: '2026-06-21' })[0];
+ok('OVER+OVER · over = BOTH (STA y STD = OVER)', aogR.over === 'BOTH' && aogR.sta === 'OVER' && aogR.std === 'OVER');
+ok('OVER+OVER · VUELO No. = SOLO la llegada (AOG, la salida puede cambiar)', aogR.vueloNo === 'AOG 100');
+ok('OVER+OVER · RUTA = PUJ', aogR.ruta === 'PUJ');
+
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
